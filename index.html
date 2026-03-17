@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0a0a0a">
+<title>Bean Machine</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Barlow+Condensed:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #0a0a0a;
+  --surface:  #111111;
+  --surface2: #181818;
+  --border:   #2a2a2a;
+  --accent:   #f5a623;
+  --accent2:  #e8520a;
+  --danger:   #e84040;
+  --green:    #27d97c;
+  --text:     #f0ece4;
+  --muted:    #555;
+  --mono:     'Share Tech Mono', monospace;
+  --display:  'Barlow Condensed', sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--display); overflow-x: hidden; }
+
+/* ── APP SHELL ── */
+.app { max-width: 480px; margin: 0 auto; padding-bottom: 80px; }
+
+/* ── HEADER ── */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 20px 14px; border-bottom: 1px solid var(--border);
+  background: var(--surface); position: sticky; top: 0; z-index: 20;
+}
+.header-left { display: flex; align-items: center; gap: 12px; }
+.header-icon {
+  width: 36px; height: 36px; border-radius: 8px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center; font-size: 18px;
+}
+.header-title { font-size: 22px; font-weight: 900; letter-spacing: 0.05em; text-transform: uppercase; }
+.header-sub   { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 1px; }
+.conn-pill {
+  font-family: var(--mono); font-size: 10px;
+  padding: 4px 10px; border-radius: 20px;
+  border: 1px solid var(--border); color: var(--muted);
+  display: flex; align-items: center; gap: 5px;
+  cursor: pointer; transition: all 0.25s;
+}
+.conn-pill.ok  { border-color: var(--green); color: var(--green); }
+.conn-pill.err { border-color: var(--danger); color: var(--danger); }
+.dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+.dot.blink { animation: blink 1.4s infinite; }
+
+/* ── TABS ── */
+.tabs {
+  display: flex; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 65px; z-index: 19;
+}
+.tab {
+  flex: 1; padding: 12px 4px 10px; text-align: center;
+  font-weight: 700; font-size: 12px; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--muted); cursor: pointer;
+  border-bottom: 2px solid transparent; transition: all 0.2s;
+}
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-icon { font-size: 15px; display: block; margin-bottom: 2px; }
+
+/* ── PANELS ── */
+.panel { display: none; padding: 20px; }
+.panel.active { display: block; }
+
+/* ── BUTTONS ── */
+.btn {
+  width: 100%; padding: 14px; border: none; border-radius: 8px;
+  font-family: var(--display); font-weight: 700; font-size: 15px;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  cursor: pointer; transition: all 0.15s;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--accent); color: #0a0a0a; }
+.btn-outline { background: transparent; color: var(--text); border: 1px solid var(--border); }
+.btn-outline:active { background: var(--surface2); }
+
+/* ── INPUT ── */
+.field label {
+  display: block; font-family: var(--mono); font-size: 11px;
+  color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px;
+}
+.field input {
+  width: 100%; padding: 13px 14px;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--mono); font-size: 16px;
+  border-radius: 6px; outline: none; transition: border 0.2s;
+}
+.field input:focus { border-color: var(--accent); }
+.field { margin-bottom: 14px; }
+
+/* ── STATUS STRIP ── */
+.status-strip {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px; margin-bottom: 20px;
+}
+.stat-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; }
+.stat-value { font-family: var(--mono); font-size: 20px; margin-top: 3px; }
+.stat-value.live  { color: var(--green); }
+@keyframes flash { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.stat-value.alert { color: var(--danger); animation: flash 0.8s infinite; }
+
+/* ── BIG GRIND BUTTON ── */
+.motor-wrap { display: flex; justify-content: center; margin: 20px 0 24px; }
+.motor-btn {
+  width: 160px; height: 160px; border-radius: 50%;
+  background: var(--surface2); border: 3px solid var(--border);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer; transition: all 0.2s; user-select: none;
+  position: relative; overflow: hidden;
+}
+.motor-btn::after {
+  content: ''; position: absolute; inset: 0; border-radius: 50%;
+  background: radial-gradient(circle, rgba(245,166,35,0.18) 0%, transparent 70%);
+  opacity: 0; transition: opacity 0.3s;
+}
+@keyframes glow { 0%,100%{box-shadow:0 0 40px rgba(245,166,35,0.3)} 50%{box-shadow:0 0 70px rgba(245,166,35,0.55)} }
+.motor-btn.running { border-color: var(--accent); animation: glow 2s ease-in-out infinite; }
+.motor-btn.running::after { opacity: 1; }
+.motor-btn:active { transform: scale(0.95); }
+.motor-icon  { font-size: 40px; line-height: 1; margin-bottom: 6px; }
+.motor-label { font-size: 14px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; }
+.motor-sub   { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 3px; }
+
+/* ── GRIND SETTING ── */
+.grind-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 16px 16px 12px; margin-bottom: 20px;
+}
+.grind-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 14px; }
+.grind-head-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+.grind-head-val   { font-family: var(--mono); font-size: 13px; color: var(--accent); }
+.grind-btns { display: flex; gap: 8px; }
+.grind-btn {
+  flex: 1; aspect-ratio: 1;
+  background: var(--surface); border: 1px solid var(--border);
+  color: var(--muted); font-family: var(--display); font-size: 22px; font-weight: 900;
+  border-radius: 8px; cursor: pointer; transition: all 0.15s;
+}
+.grind-btn:active { transform: scale(0.93); }
+.grind-btn.active { background: var(--accent); color: #0a0a0a; border-color: var(--accent); box-shadow: 0 0 18px rgba(245,166,35,0.35); }
+.grind-scale { display: flex; justify-content: space-between; margin-top: 8px; font-family: var(--mono); font-size: 10px; color: var(--muted); }
+
+/* ── CURRENT GRAPH ── */
+.graph-card {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px; margin-bottom: 20px;
+}
+.graph-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.graph-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; }
+.graph-val   { font-family: var(--mono); font-size: 16px; color: var(--green); }
+canvas { width: 100%; height: 70px; display: block; }
+
+/* ── SCHEDULE ── */
+.sched-list { display: flex; flex-direction: column; gap: 10px; }
+.sched-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 14px; }
+.sched-card.on { border-left: 3px solid var(--accent); }
+.sched-card.off { opacity: 0.5; }
+.sched-row { display: flex; align-items: center; gap: 12px; }
+.sched-time { font-family: var(--mono); font-size: 22px; flex: 1; }
+.sched-detail { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 3px; }
+.toggle {
+  width: 44px; height: 24px; border-radius: 12px;
+  background: var(--border); border: none; cursor: pointer;
+  position: relative; transition: background 0.2s; flex-shrink: 0;
+}
+.toggle.on { background: var(--accent); }
+.toggle::after {
+  content: ''; position: absolute; top: 3px; left: 3px;
+  width: 18px; height: 18px; border-radius: 50%; background: white;
+  transition: transform 0.2s;
+}
+.toggle.on::after { transform: translateX(20px); }
+.edit-btn { font-size: 18px; cursor: pointer; padding: 4px; color: var(--muted); }
+
+/* ── MODAL ── */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.88); z-index: 100; display: none; align-items: flex-end; }
+.overlay.open { display: flex; }
+.modal {
+  width: 100%; background: var(--surface);
+  border-top: 1px solid var(--border); border-radius: 20px 20px 0 0;
+  padding: 24px 20px 44px;
+}
+@keyframes up { from{transform:translateY(100%)} to{transform:translateY(0)} }
+.overlay.open .modal { animation: up 0.22s ease; }
+.modal-title { font-size: 20px; font-weight: 900; text-transform: uppercase; margin-bottom: 18px; }
+.modal-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+.picker label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; margin-bottom: 5px; display: block; }
+.picker input[type=number] {
+  width: 100%; padding: 11px; text-align: center;
+  background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); font-family: var(--mono); font-size: 22px;
+  border-radius: 6px; outline: none;
+}
+.picker input:focus { border-color: var(--accent); }
+.modal-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 14px 0 8px; }
+.day-row { display: flex; gap: 6px; }
+.day-btn {
+  flex: 1; padding: 10px 2px; background: var(--surface2);
+  border: 1px solid var(--border); color: var(--muted);
+  font-family: var(--display); font-weight: 700; font-size: 12px;
+  text-transform: uppercase; border-radius: 6px; cursor: pointer; transition: all 0.15s;
+}
+.day-btn.sel { background: var(--accent); color: #0a0a0a; border-color: var(--accent); }
+.recur-row {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 11px 13px; margin-top: 12px;
+}
+.recur-text { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
+.recur-sub  { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 2px; }
+.modal-actions { display: flex; gap: 10px; margin-top: 16px; }
+.modal-actions .btn { padding: 13px; }
+
+/* ── STATS ── */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+.stat-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+.stat-card-icon  { font-size: 22px; margin-bottom: 8px; }
+.stat-card-value { font-family: var(--mono); font-size: 26px; }
+.stat-card-label { font-family: var(--mono); font-size: 10px; color: var(--muted); text-transform: uppercase; margin-top: 4px; }
+.maint-card {
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid var(--border); border-radius: 10px;
+  padding: 14px; margin-bottom: 18px;
+}
+.maint-card.ok  { border-color: var(--green); background: rgba(39,217,124,0.05); }
+.maint-card.bad { border-color: var(--danger); background: rgba(232,64,64,0.08); }
+.maint-icon { font-size: 26px; flex-shrink: 0; }
+.maint-title { font-size: 14px; font-weight: 700; }
+.maint-card.ok  .maint-title { color: var(--green); }
+.maint-card.bad .maint-title { color: var(--danger); }
+.maint-msg { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+/* ── SETUP PANEL ── */
+.setup-section-title {
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 12px;
+}
+.status-msg {
+  font-family: var(--mono); font-size: 12px; color: var(--muted);
+  text-align: center; min-height: 18px; margin-top: 12px;
+}
+.info-box {
+  background: var(--surface2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px; margin-top: 16px;
+  font-family: var(--mono); font-size: 11px; color: var(--muted); line-height: 1.7;
+}
+.info-box strong { color: var(--text); }
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-left">
+    <div class="header-icon">☕</div>
+    <div>
+      <div class="header-title">Bean Machine</div>
+      <div class="header-sub" id="connMode">NOT CONNECTED</div>
+    </div>
+  </div>
+  <div class="conn-pill" id="connPill" onclick="switchTab('setup')">
+    <div class="dot blink" id="connDot"></div>
+    <span id="connLabel">Connect</span>
+  </div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="switchTab('control')"><span class="tab-icon">⚡</span>Control</div>
+  <div class="tab" onclick="switchTab('schedule')"><span class="tab-icon">🕐</span>Schedule</div>
+  <div class="tab" onclick="switchTab('stats')"><span class="tab-icon">📊</span>Stats</div>
+  <div class="tab" onclick="switchTab('setup')"><span class="tab-icon">📡</span>Setup</div>
+</div>
+
+<!-- ══ CONTROL TAB ══ -->
+<div class="panel active" id="panel-control">
+
+  <div class="status-strip">
+    <div>
+      <div class="stat-label">Status</div>
+      <div class="stat-value" id="motorStatus">IDLE</div>
+    </div>
+    <div>
+      <div class="stat-label">Run time</div>
+      <div class="stat-value" id="runTime" style="font-size:16px">00:00</div>
+    </div>
+    <div>
+      <div class="stat-label">Current</div>
+      <div class="stat-value live" id="currentVal">— A</div>
+    </div>
+    <div>
+      <div class="stat-label">Grind</div>
+      <div class="stat-value" id="grindVal">3</div>
+    </div>
+  </div>
+
+  <div class="motor-wrap">
+    <div class="motor-btn" id="motorBtn" onclick="toggleMotor()">
+      <div class="motor-icon">⚙️</div>
+      <div class="motor-label" id="motorLabel">START</div>
+      <div class="motor-sub"  id="motorSub">Tap to grind</div>
+    </div>
+  </div>
+
+  <div class="grind-card">
+    <div class="grind-head">
+      <span class="grind-head-label">Grind setting</span>
+      <span class="grind-head-val" id="grindDesc">Medium</span>
+    </div>
+    <div class="grind-btns">
+      <button class="grind-btn" onclick="setGrind(1)">1</button>
+      <button class="grind-btn" onclick="setGrind(2)">2</button>
+      <button class="grind-btn active" onclick="setGrind(3)">3</button>
+      <button class="grind-btn" onclick="setGrind(4)">4</button>
+      <button class="grind-btn" onclick="setGrind(5)">5</button>
+    </div>
+    <div class="grind-scale"><span>Fine</span><span>Coarse</span></div>
+  </div>
+
+  <div class="graph-card">
+    <div class="graph-header">
+      <span class="graph-label">Current draw (A)</span>
+      <span class="graph-val" id="graphVal">0.000 A</span>
+    </div>
+    <canvas id="graph"></canvas>
+  </div>
+
+</div>
+
+<!-- ══ SCHEDULE TAB ══ -->
+<div class="panel" id="panel-schedule">
+  <div class="sched-list" id="schedList"></div>
+</div>
+
+<!-- ══ STATS TAB ══ -->
+<div class="panel" id="panel-stats">
+  <div class="maint-card ok" id="maintCard">
+    <div class="maint-icon" id="maintIcon">✅</div>
+    <div>
+      <div class="maint-title" id="maintTitle">System OK</div>
+      <div class="maint-msg"  id="maintMsg">No maintenance required</div>
+    </div>
+  </div>
+  <div class="stats-grid">
+    <div class="stat-card"><div class="stat-card-icon">⏱️</div><div class="stat-card-value" id="sTotalMin">0</div><div class="stat-card-label">Total runtime (min)</div></div>
+    <div class="stat-card"><div class="stat-card-icon">🔄</div><div class="stat-card-value" id="sCount">0</div><div class="stat-card-label">Grind cycles</div></div>
+    <div class="stat-card"><div class="stat-card-icon">🔧</div><div class="stat-card-value" id="sService">0</div><div class="stat-card-label">Min since service</div></div>
+    <div class="stat-card"><div class="stat-card-icon">📶</div><div class="stat-card-value" id="sConn">—</div><div class="stat-card-label">Connection</div></div>
+  </div>
+  <button class="btn btn-outline" onclick="sendCmd('resetMaintenance')">🔧 Mark as serviced</button>
+</div>
+
+<!-- ══ SETUP TAB ══ -->
+<div class="panel" id="panel-setup">
+  <div class="setup-section-title">Connect to your ESP32</div>
+  <div class="field">
+    <label>ESP32 IP address</label>
+    <input type="text" id="ipInput" placeholder="192.168.1.xxx" inputmode="decimal">
+  </div>
+  <button class="btn btn-primary" onclick="connect()">⚡ Connect</button>
+  <button class="btn btn-outline" id="disconnectBtn" onclick="disconnect()" style="margin-top:10px;display:none">Disconnect</button>
+  <div class="status-msg" id="statusMsg"></div>
+  <div class="info-box">
+    <strong>How to find your ESP32's IP address:</strong><br><br>
+    1. Make sure the ESP32 is powered on and connected to your WiFi<br>
+    2. Look at the LCD screen on the device — the IP address is shown on the bottom line, e.g. <strong>192.168.1.42</strong><br>
+    3. Type that number into the box above and tap Connect<br><br>
+    <strong>Tip:</strong> Your phone must be on the same WiFi network as the ESP32.
+  </div>
+</div>
+
+</div><!-- .app -->
+
+<!-- ══ SCHEDULE EDIT MODAL ══ -->
+<div class="overlay" id="overlay" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-title">Schedule <span id="modalNum"></span></div>
+    <div class="modal-row">
+      <div class="picker"><label>Hour (0–23)</label><input type="number" id="eHour" min="0" max="23" value="7"></div>
+      <div class="picker"><label>Minute</label><input type="number" id="eMin" min="0" max="59" value="0"></div>
+      <div class="picker"><label>Duration (s)</label><input type="number" id="eDur" min="5" max="300" value="30"></div>
+    </div>
+    <div class="modal-label">Day of week</div>
+    <div class="day-row">
+      <button class="day-btn" data-day="0" onclick="toggleDay(0)">Su</button>
+      <button class="day-btn" data-day="1" onclick="toggleDay(1)">Mo</button>
+      <button class="day-btn" data-day="2" onclick="toggleDay(2)">Tu</button>
+      <button class="day-btn" data-day="3" onclick="toggleDay(3)">We</button>
+      <button class="day-btn" data-day="4" onclick="toggleDay(4)">Th</button>
+      <button class="day-btn" data-day="5" onclick="toggleDay(5)">Fr</button>
+      <button class="day-btn" data-day="6" onclick="toggleDay(6)">Sa</button>
+    </div>
+    <div class="recur-row">
+      <div>
+        <div class="recur-text">Repeat weekly</div>
+        <div class="recur-sub">Run every selected day, every week</div>
+      </div>
+      <button class="toggle" id="recurBtn" onclick="toggleRecur()"></button>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="flex:1" onclick="saveSchedule()">Save</button>
+      <button class="btn btn-outline" style="width:auto;padding:13px 20px" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════
+let ws          = null;
+let connected   = false;
+let motorOn     = false;
+let grindLevel  = 3;
+let runTimer    = null;
+let runSecs     = 0;
+let ampBuf      = new Array(60).fill(0);
+let editIdx     = -1;
+let editDays    = [];
+let editRecur   = false;
+
+const GRIND_LABELS = ['','Extra Fine','Fine','Medium','Coarse','Extra Coarse'];
+const GRIND_SERVO  = [0, 0, 45, 90, 135, 180];
+
+let schedules = Array.from({length:5}, () => ({
+  enabled: false, hour: 7, minute: 0, durationSec: 30, days: [], recur: false
+}));
+
+// ═══════════════════════════════════════════
+//  CONNECTION
+// ═══════════════════════════════════════════
+function connect() {
+  const ip = document.getElementById('ipInput').value.trim();
+  if (!ip) { setMsg('Please enter the IP address shown on the LCD screen.'); return; }
+
+  // Save IP so it's pre-filled next time
+  localStorage.setItem('bm_ip', ip);
+
+  if (ws) { ws.onclose = null; ws.close(); }
+  setMsg('Connecting...');
+
+  ws = new WebSocket(`ws://${ip}:81`);
+
+  ws.onopen = () => {
+    connected = true;
+    setConnected(true, ip);
+    sendCmd('getStatus');
+    // Poll for live data every 1.5s while connected
+    startPoll();
+  };
+
+  ws.onmessage = e => {
+    try { handleData(JSON.parse(e.data)); } catch(err) {}
+  };
+
+  ws.onerror = () => {
+    setMsg('Could not connect. Check the IP address and make sure your phone is on the same WiFi.');
+  };
+
+  ws.onclose = () => {
+    connected = false;
+    setConnected(false);
+    clearInterval(pollTimer);
+    // Auto-retry every 5 seconds
+    setTimeout(() => { if (!connected) connect(); }, 5000);
+    setMsg('Connection lost — retrying...');
+  };
+}
+
+function disconnect() {
+  if (ws) { ws.onclose = null; ws.close(); ws = null; }
+  connected = false;
+  setConnected(false);
+  clearInterval(pollTimer);
+  setMsg('Disconnected.');
+  document.getElementById('disconnectBtn').style.display = 'none';
+}
+
+let pollTimer = null;
+function startPoll() {
+  clearInterval(pollTimer);
+  pollTimer = setInterval(() => sendCmd('getStatus'), 1500);
+}
+
+function sendCmd(cmd, extra = {}) {
+  if (!ws || ws.readyState !== WebSocket.OPEN) return;
+  ws.send(JSON.stringify({ cmd, ...extra }));
+}
+
+// ═══════════════════════════════════════════
+//  DATA HANDLER
+// ═══════════════════════════════════════════
+function handleData(d) {
+  motorOn = d.motor;
+  updateControl(d);
+  updateStats(d);
+  if (d.schedules) { schedules = d.schedules; renderSchedules(); }
+}
+
+// ═══════════════════════════════════════════
+//  CONTROL TAB
+// ═══════════════════════════════════════════
+function toggleMotor() {
+  if (!connected) { switchTab('setup'); setMsg('Connect to the ESP32 first.'); return; }
+  sendCmd(motorOn ? 'motorOff' : 'motorOn');
+}
+
+function updateControl(d) {
+  const btn = document.getElementById('motorBtn');
+  motorOn = d.motor;
+
+  if (motorOn) {
+    btn.classList.add('running');
+    document.getElementById('motorLabel').textContent = 'STOP';
+    document.getElementById('motorSub').textContent   = 'Grinding...';
+    document.getElementById('motorStatus').textContent = 'GRINDING';
+    document.getElementById('motorStatus').className  = 'stat-value live';
+    if (!runTimer) {
+      runSecs = d.runTimeSec || 0;
+      runTimer = setInterval(() => {
+        runSecs++;
+        const m = String(Math.floor(runSecs/60)).padStart(2,'0');
+        const s = String(runSecs%60).padStart(2,'0');
+        document.getElementById('runTime').textContent = `${m}:${s}`;
+      }, 1000);
+    }
+  } else {
+    btn.classList.remove('running');
+    document.getElementById('motorLabel').textContent = 'START';
+    document.getElementById('motorSub').textContent   = 'Tap to grind';
+    document.getElementById('motorStatus').textContent = 'IDLE';
+    document.getElementById('motorStatus').className  = 'stat-value';
+    clearInterval(runTimer); runTimer = null;
+    document.getElementById('runTime').textContent = '00:00';
+  }
+
+  const amps = d.currentAmps || 0;
+  document.getElementById('currentVal').textContent = amps.toFixed(2) + ' A';
+  document.getElementById('graphVal').textContent   = amps.toFixed(3) + ' A';
+  document.getElementById('grindVal').textContent   = grindLevel;
+
+  ampBuf.push(amps);
+  if (ampBuf.length > 60) ampBuf.shift();
+  drawGraph();
+}
+
+// ═══════════════════════════════════════════
+//  GRIND SETTING
+// ═══════════════════════════════════════════
+function setGrind(level) {
+  grindLevel = level;
+  document.querySelectorAll('.grind-btn').forEach((b, i) => {
+    b.classList.toggle('active', i + 1 === level);
+  });
+  document.getElementById('grindDesc').textContent = GRIND_LABELS[level];
+  document.getElementById('grindVal').textContent  = level;
+  sendCmd('setGrind', { level, servoPos: GRIND_SERVO[level] });
+}
+
+// ═══════════════════════════════════════════
+//  CURRENT GRAPH
+// ═══════════════════════════════════════════
+function drawGraph() {
+  const c   = document.getElementById('graph');
+  const dpr = window.devicePixelRatio || 1;
+  const W   = c.offsetWidth * dpr;
+  const H   = 70 * dpr;
+  c.width = W; c.height = H;
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0,0,W,H);
+  const max = Math.max(...ampBuf, 0.1);
+  const pts = ampBuf.map((v,i) => ({
+    x: (i / (ampBuf.length-1)) * W,
+    y: H - (v/max) * H * 0.88 - H * 0.06
+  }));
+  const g = ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,'rgba(39,217,124,0.28)');
+  g.addColorStop(1,'rgba(39,217,124,0)');
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, H);
+  pts.forEach(p => ctx.lineTo(p.x, p.y));
+  ctx.lineTo(pts[pts.length-1].x, H);
+  ctx.closePath();
+  ctx.fillStyle = g; ctx.fill();
+  ctx.beginPath();
+  pts.forEach((p,i) => i===0 ? ctx.moveTo(p.x,p.y) : ctx.lineTo(p.x,p.y));
+  ctx.strokeStyle = '#27d97c'; ctx.lineWidth = 1.5*dpr; ctx.stroke();
+}
+
+// ═══════════════════════════════════════════
+//  STATS TAB
+// ═══════════════════════════════════════════
+function updateStats(d) {
+  document.getElementById('sTotalMin').textContent = d.totalMinutes || 0;
+  document.getElementById('sCount').textContent    = d.grindCount   || 0;
+  document.getElementById('sService').textContent  = d.minutesSinceService || 0;
+  document.getElementById('sConn').textContent     = 'WiFi';
+
+  const card  = document.getElementById('maintCard');
+  const icon  = document.getElementById('maintIcon');
+  const title = document.getElementById('maintTitle');
+  const msg   = document.getElementById('maintMsg');
+
+  if (d.needsMaint) {
+    card.className  = 'maint-card bad';
+    icon.textContent  = '⚠️';
+    title.textContent = 'Maintenance Required';
+    msg.textContent   = `${d.minutesSinceService} min since last service`;
+  } else {
+    card.className  = 'maint-card ok';
+    icon.textContent  = '✅';
+    title.textContent = 'System OK';
+    msg.textContent   = `${d.minutesSinceService || 0} min since last service`;
+  }
+}
+
+// ═══════════════════════════════════════════
+//  SCHEDULE TAB
+// ═══════════════════════════════════════════
+const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+
+function dayLabel(days) {
+  if (!days || days.length === 0) return 'No day set';
+  if (days.length === 7) return 'Every day';
+  if (days.length === 5 && ![0,6].some(d=>days.includes(d))) return 'Weekdays';
+  if (days.length === 2 && days.includes(0) && days.includes(6)) return 'Weekends';
+  return days.slice().sort((a,b)=>a-b).map(d=>DAY_NAMES[d]).join(', ');
+}
+
+function renderSchedules() {
+  document.getElementById('schedList').innerHTML = schedules.map((s,i) => `
+    <div class="sched-card ${s.enabled?'on':'off'}">
+      <div class="sched-row">
+        <button class="toggle ${s.enabled?'on':''}" onclick="toggleSched(${i})"></button>
+        <div style="flex:1">
+          <div class="sched-time">${String(s.hour).padStart(2,'0')}:${String(s.minute).padStart(2,'0')}</div>
+          <div class="sched-detail">${s.durationSec}s · ${dayLabel(s.days)}${s.recur?' · Repeats weekly':''} · ${s.enabled?'Active':'Off'}</div>
+        </div>
+        <div class="edit-btn" onclick="openModal(${i})">✏️</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function toggleSched(i) {
+  schedules[i].enabled = !schedules[i].enabled;
+  sendCmd('setSchedule', {index:i, ...schedules[i]});
+  renderSchedules();
+}
+
+function openModal(i) {
+  editIdx   = i;
+  editDays  = [...(schedules[i].days  || [])];
+  editRecur = schedules[i].recur || false;
+  document.getElementById('eHour').value = schedules[i].hour;
+  document.getElementById('eMin').value  = schedules[i].minute;
+  document.getElementById('eDur').value  = schedules[i].durationSec;
+  document.getElementById('modalNum').textContent = `#${i+1}`;
+  document.querySelectorAll('.day-btn').forEach(b => {
+    b.classList.toggle('sel', editDays.includes(parseInt(b.dataset.day)));
+  });
+  document.getElementById('recurBtn').classList.toggle('on', editRecur);
+  document.getElementById('overlay').classList.add('open');
+}
+
+function closeModal(e) {
+  if (!e || e.target === document.getElementById('overlay'))
+    document.getElementById('overlay').classList.remove('open');
+}
+
+function toggleDay(d) {
+  const idx = editDays.indexOf(d);
+  if (idx === -1) editDays.push(d); else editDays.splice(idx,1);
+  document.querySelectorAll('.day-btn').forEach(b => {
+    b.classList.toggle('sel', editDays.includes(parseInt(b.dataset.day)));
+  });
+}
+
+function toggleRecur() {
+  editRecur = !editRecur;
+  document.getElementById('recurBtn').classList.toggle('on', editRecur);
+}
+
+function saveSchedule() {
+  const i = editIdx;
+  schedules[i].hour        = parseInt(document.getElementById('eHour').value) || 0;
+  schedules[i].minute      = parseInt(document.getElementById('eMin').value)  || 0;
+  schedules[i].durationSec = parseInt(document.getElementById('eDur').value)  || 30;
+  schedules[i].days        = [...editDays];
+  schedules[i].recur       = editRecur;
+  sendCmd('setSchedule', {index:i, ...schedules[i]});
+  renderSchedules();
+  document.getElementById('overlay').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════
+//  UI HELPERS
+// ═══════════════════════════════════════════
+function switchTab(name) {
+  const names = ['control','schedule','stats','setup'];
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', names[i]===name));
+  document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id===`panel-${name}`));
+}
+
+function setConnected(ok, ip='') {
+  const pill  = document.getElementById('connPill');
+  const dot   = document.getElementById('connDot');
+  const lbl   = document.getElementById('connLabel');
+  const mode  = document.getElementById('connMode');
+  const disc  = document.getElementById('disconnectBtn');
+  if (ok) {
+    pill.className = 'conn-pill ok';
+    dot.className  = 'dot';
+    lbl.textContent  = 'Connected';
+    mode.textContent = ip;
+    disc.style.display = 'block';
+    setMsg('');
+  } else {
+    pill.className = 'conn-pill err';
+    dot.className  = 'dot blink';
+    lbl.textContent  = 'Offline';
+    mode.textContent = 'NOT CONNECTED';
+    disc.style.display = 'none';
+  }
+}
+
+function setMsg(msg) {
+  document.getElementById('statusMsg').textContent = msg;
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+renderSchedules();
+drawGraph();
+window.addEventListener('resize', drawGraph);
+
+// Pre-fill saved IP
+const savedIP = localStorage.getItem('bm_ip');
+if (savedIP) document.getElementById('ipInput').value = savedIP;
+
+// Auto-connect if we have a saved IP
+if (savedIP) connect();
+</script>
+</body>
+</html>
